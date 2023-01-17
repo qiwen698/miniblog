@@ -34,7 +34,7 @@ func initConfig() {
 		viper.AddConfigPath(filepath.Join(home, recommendedHomeDir))
 		// 把当前目录加入到配置文件的搜索路劲中
 		viper.AddConfigPath(".")
-		viper.AddConfigPath("configs")
+		//viper.AddConfigPath("configs")
 		// 设置配置文件格式
 		viper.SetConfigType("yaml")
 		//设置配置文件名（没有文件扩展名）

@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/qiwen698/miniblog/pkg/version/verflag"
+
 	"github.com/qiwen698/miniblog/internal/pkg/log"
 
 	"github.com/spf13/viper"
@@ -52,6 +54,8 @@ to quickly create a Cobra application.`,
 		SilenceUsage: true,
 		// 指定调用cmd.Execute()时，执行的Run 函数，函数执行失败会返回错误信息
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//如果 `--version=true`，则打印版本并退出
+			verflag.PrintAndExitIfRequested()
 			//初始化日志
 			log.Init(logOptions())
 			defer log.Sync() // Sync 将缓存中的日志刷新到磁盘文件中
@@ -80,6 +84,8 @@ to quickly create a Cobra application.`,
 	// when this action is called directly.
 	cmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
+	// 添加 --version 标志
+	verflag.AddFlags(cmd.PersistentFlags())
 	return cmd
 }
 
