@@ -1,8 +1,11 @@
 package log
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"github.com/qiwen698/miniblog/internal/pkg/known"
 
 	"go.uber.org/zap/zapcore"
 
@@ -143,4 +146,24 @@ func Sync() {
 }
 func (l *zapLogger) Sync() {
 	_ = l.z.Sync()
+}
+
+func C(ctx context.Context) *zapLogger {
+	return std.C(ctx)
+}
+func (l *zapLogger) C(ctx context.Context) *zapLogger {
+	lc := l.clone()
+	if requestID := ctx.Value(known.XRequestIDKey); requestID != nil {
+		lc.z = lc.z.With(zap.Any(known.XRequestIDKey, requestID))
+	}
+	if userID := ctx.Value(known.XUsernameKey); userID != nil {
+		lc.z = lc.z.With(zap.Any(known.XUsernameKey, userID))
+	}
+	return lc
+}
+
+// clone 深度拷贝 zapLogger.
+func (l *zapLogger) clone() *zapLogger {
+	lc := *l
+	return &lc
 }

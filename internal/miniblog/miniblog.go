@@ -22,8 +22,19 @@ THE SOFTWARE.
 package miniblog
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/qiwen698/miniblog/pkg/core"
+	"github.com/qiwen698/miniblog/pkg/errno"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/qiwen698/miniblog/pkg/version/verflag"
 
@@ -31,6 +42,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	mw "github.com/qiwen698/miniblog/internal/pkg/middleware"
 	"github.com/spf13/cobra"
 )
 
@@ -91,10 +103,47 @@ to quickly create a Cobra application.`,
 
 // run 函数是实际的业务代码入口函数
 func run() error {
-	//打印所有的配置项及其值
-	settings, _ := json.Marshal(viper.AllSettings())
-	log.Infow(string(settings))
-	//打印 db -> username 配置项的值
-	log.Infow(viper.GetString("db.username"))
+
+	//设置Gin模式
+	gin.SetMode(viper.GetString("runmode"))
+	//创建Gin引擎
+	g := gin.New()
+	mws := []gin.HandlerFunc{gin.Recovery(), mw.NoCache, mw.Cors, mw.Secure, mw.RequestID()}
+	g.Use(mws...)
+	//注册 404 Handler
+	g.NoRoute(func(c *gin.Context) {
+		core.WriteResponse(c, errno.ErrPageNotFound, nil)
+	})
+	//注册 /healthz handler.
+	g.GET("/healthz", func(c *gin.Context) {
+		log.C(c).Infow("Healthz function called")
+		core.WriteResponse(c, nil, map[string]string{"status": "ok"})
+	})
+	// 创建 HTTP Server 实例
+	httpsrv := &http.Server{
+		Addr:    viper.GetString("addr"),
+		Handler: g,
+	}
+	// 运行HTTP服务
+	// 打印一条日志，用来提示HTTP服务已经起来，方便排障
+	log.Infow("Start to listening the incoming requests on http address", "addr", viper.GetString("addr"))
+	go func() {
+		if err := httpsrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalw(err.Error())
+
+		}
+	}()
+	// 等待中断信号优雅地关闭服务器 （10 秒超时）
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM) //此处不会阻塞
+	<-quit                                               //阻塞在此，当接到上述两种信号时才会往下执行
+	log.Infow("Shutting down server ...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpsrv.Shutdown(ctx); err != nil {
+		log.Errorw("Insecure Server forced to shutdown", "err", err)
+		return err
+	}
+	log.Infow("Server exiting")
 	return nil
 }
