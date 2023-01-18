@@ -31,9 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/qiwen698/miniblog/pkg/core"
-	"github.com/qiwen698/miniblog/pkg/errno"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/qiwen698/miniblog/pkg/version/verflag"
@@ -104,21 +101,20 @@ to quickly create a Cobra application.`,
 // run 函数是实际的业务代码入口函数
 func run() error {
 
+	// 初始化 store 层
+	if err := initStore(); err != nil {
+		return err
+	}
+
 	//设置Gin模式
 	gin.SetMode(viper.GetString("runmode"))
 	//创建Gin引擎
 	g := gin.New()
 	mws := []gin.HandlerFunc{gin.Recovery(), mw.NoCache, mw.Cors, mw.Secure, mw.RequestID()}
 	g.Use(mws...)
-	//注册 404 Handler
-	g.NoRoute(func(c *gin.Context) {
-		core.WriteResponse(c, errno.ErrPageNotFound, nil)
-	})
-	//注册 /healthz handler.
-	g.GET("/healthz", func(c *gin.Context) {
-		log.C(c).Infow("Healthz function called")
-		core.WriteResponse(c, nil, map[string]string{"status": "ok"})
-	})
+	if err := installRouters(g); err != nil {
+		return err
+	}
 	// 创建 HTTP Server 实例
 	httpsrv := &http.Server{
 		Addr:    viper.GetString("addr"),
