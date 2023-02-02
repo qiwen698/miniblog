@@ -9,11 +9,11 @@ import (
 	"github.com/qiwen698/miniblog/pkg/errno"
 )
 
-const defaultMethods = "(GET)|(POST)|(PUT)|(DELETE)"
+// Update 更新用户信息
 
-func (ctrl *UserController) Create(c *gin.Context) {
-	log.C(c).Infow("Create user function called")
-	var r v1.CreateUserRequest
+func (ctrl *UserController) Update(c *gin.Context) {
+	log.C(c).Infow("Update user function called")
+	var r v1.UpdateUserRequest
 	if err := c.ShouldBindJSON(&r); err != nil {
 		core.WriteResponse(c, errno.ErrBind, nil)
 		return
@@ -22,11 +22,7 @@ func (ctrl *UserController) Create(c *gin.Context) {
 		core.WriteResponse(c, errno.ErrInvalidParameter.SetMessage(err.Error()), nil)
 		return
 	}
-	if err := ctrl.b.Users().Create(c, &r); err != nil {
-		core.WriteResponse(c, err, nil)
-		return
-	}
-	if _, err := ctrl.a.AddNamedPolicy("p", r.Username, "/v1/users/"+r.Username, defaultMethods); err != nil {
+	if err := ctrl.b.Users().Update(c, c.Param("name"), &r); err != nil {
 		core.WriteResponse(c, err, nil)
 		return
 	}

@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"sync"
+
+	"github.com/qiwen698/miniblog/internal/pkg/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/qiwen698/miniblog/pkg/token"
 
@@ -27,10 +31,60 @@ type UserBiz interface {
 	Login(ctx context.Context, r *v1.LoginRequest) (*v1.LoginResponse, error)
 	Create(ctx context.Context, r *v1.CreateUserRequest) error
 	Get(ctx context.Context, username string) (*v1.GetUserResponse, error)
+	List(ctx context.Context, offset, limit int) (*v1.ListUserResponse, error)
 	Update(ctx context.Context, username string, r *v1.UpdateUserRequest) error
 }
 type userBiz struct {
 	ds store.IStore
+}
+
+func (b *userBiz) List(ctx context.Context, offset, limit int) (*v1.ListUserResponse, error) {
+	count, list, err := b.ds.Users().List(ctx, offset, limit)
+	if err != nil {
+		log.C(ctx).Errorw("Failed to list users from storage", "err", err)
+		return nil, err
+	}
+	var m sync.Map
+	eg, ctx := errgroup.WithContext(ctx)
+	// 使用 goroutine 提高接口性能
+	for _, item := range list {
+		user := item
+		eg.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				count, _, err := b.ds.Posts().List(ctx, user.Username, 0, 0)
+				if err != nil {
+					log.C(ctx).Errorw("Failed to list posts", "err", err)
+				}
+				m.Store(user.ID, &v1.UserInfo{
+					Username:  user.Username,
+					Nickname:  user.Nickname,
+					Email:     user.Email,
+					Phone:     user.Phone,
+					PostCount: count,
+					CreatedAt: user.CreatedAt.Format("2006-01-02 15:04:05"),
+					UpdatedAt: user.UpdatedAt.Format("2006-01-02 15:04:05"),
+				})
+				return nil
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		log.C(ctx).Errorw("Failed to wait all function calls returned", "err", err)
+		return nil, err
+	}
+	users := make([]*v1.UserInfo, 0, len(list))
+	for _, item := range list {
+		user, _ := m.Load(item.ID)
+		users = append(users, user.(*v1.UserInfo))
+	}
+	log.C(ctx).Debugw("Get users from backend storage", "count", len(users))
+	return &v1.ListUserResponse{
+		TotalCount: count,
+		Users:      users,
+	}, nil
 }
 
 // Login 是 UserBiz 接口中 `Login` 方法的实现

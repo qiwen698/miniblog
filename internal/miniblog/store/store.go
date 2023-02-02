@@ -13,7 +13,9 @@ var (
 )
 
 type IStore interface {
+	DB() *gorm.DB
 	Users() UserStore
+	Posts() PostStore
 }
 
 type datastore struct {
@@ -34,6 +36,15 @@ func NewStore(db *gorm.DB) *datastore {
 	return S
 }
 
+// DB 返回存储在 datastore中的 *gorm.DB
+func (ds *datastore) DB() *gorm.DB {
+	return ds.db
+}
+
 func (ds *datastore) Users() UserStore {
 	return newUsers(ds.db)
+}
+
+func (ds *datastore) Posts() PostStore {
+	return newPosts(ds.db)
 }

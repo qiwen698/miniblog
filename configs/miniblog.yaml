@@ -1,5 +1,7 @@
 runmode: debug
 addr: :8080
+jwt-secret: MDM1MDU5ODcwLCJpYXQiOjE2NzUwNTk4NzAsIm5iZiI6MTY3NTA1OTg3MH0 # JWT 签发密钥
+
 # MySQL 数据库相关配置
 db:
   host: miniblogdb.local.com  # MySQL 机器 IP 和端口，默认 127.0.0.1:3306
@@ -17,3 +19,13 @@ log:
   level: debug # 指定日志级别，可选值：debug, info, warn, error, dpanic, panic, fatal
   format: console # 指定日志显示格式，可选值：console, json
   output-paths: [./tmp/miniblog.log, stdout] # 指定日志输出位置，多个输出，用 `逗号 + 空格` 分开。stdout：标准输出，
+
+# HTTPS 服务器相关配置
+tls:
+  addr: :8443 # HTTPS 服务器监听地址
+  cert: ./_output/cert/server.crt # 服务端证书文件
+  key: ./_output/cert/server.key # 服务端私钥文件
+
+# GRPC 相关配置
+grpc:
+  addr: :9090 # GRPC 服务器监听地址
