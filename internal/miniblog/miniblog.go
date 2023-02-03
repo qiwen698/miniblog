@@ -133,6 +133,7 @@ func run() error {
 	//创建并运行 HTTPS 服务器
 	httpssrv := startSecureServer(g)
 
+	//创建并运行 GRPC 服务器
 	grpcrv := startGRPCServer()
 	// 等待中断信号优雅地关闭服务器 （10 秒超时）
 	//quit := make(chan os.Signal, 1)
